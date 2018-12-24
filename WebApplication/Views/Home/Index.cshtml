@@ -1,0 +1,100 @@
+﻿@model IList<Car>
+@{ ViewData["Title"] = "Home"; }
+@using (Html.BeginForm("Index", "Home", FormMethod.Post))
+{
+    <table class="responsive-table highlight centered">
+        <thead>
+            <tr>
+                <th>
+                    <p>
+                        <label>
+                            <input type="checkbox" checked="@ViewBag.Active" class="toggleClaim" />
+                            <span></span>
+                        </label>
+                    </p>
+                </th>
+                <th>@Html.ActionLink("Marca", "Index", new { sortOrder = "brand" })</th>
+                <th>@Html.ActionLink("Modelo", "Index", new { sortOrder = "model" })</th>
+                <th>@Html.ActionLink("Color", "Index", new { sortOrder = "color" })</th>
+                <th>@Html.ActionLink("Placa", "Index", new { sortOrder = "plate" })</th>
+                <th>@Html.ActionLink("Ciudad Destino", "Index", new { sortOrder = "city" })</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @for (int i = 0; i < Model.Count; i++)
+            {
+                <tr>
+                    <td>
+                        <label>
+                            @Html.CheckBoxFor(m => m[i].Selected, new { @class = "check", @onclick = "document.getElementById('btn').click()" })
+                            <span></span>
+                        </label>
+                    </td>
+                    <td>@Html.DisplayFor(m => m[i].Brand)</td>@Html.HiddenFor(m => m[i].Brand)
+                    <td>@Html.DisplayFor(m => m[i].Model)</td>@Html.HiddenFor(m => m[i].Model)
+                    <td>@Html.DisplayFor(m => m[i].Color)</td>@Html.HiddenFor(m => m[i].Color)
+                    <td>@Html.DisplayFor(m => m[i].Plate)</td>@Html.HiddenFor(m => m[i].Plate)
+                    <td>@Html.DisplayFor(m => m[i].City)</td>@Html.HiddenFor(m => m[i].City)
+                </tr>
+            }
+        </tbody>
+    </table>
+    <input type="submit" value="Submit" hidden id="btn" />
+}
+
+@if (@TempData["CarsSelected"] != null && ((IList<Dispatch>)@TempData["CarsSelected"]).Any())
+{
+    <br />
+    <br />
+    <br />
+    <hr />
+    <br />
+    @using (Html.BeginForm("SaveDispatches", "Home", FormMethod.Post))
+    {
+        <table class="responsive-table highlight centered">
+            <thead>
+                <tr>
+                    <th>Ciudad Destino</th>
+                    <th>Cantidad de Vehículos a Despachar</th>
+                    <th>Número de despacho</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                @{
+                    int total = 0;
+                    @foreach (var item in ((IList<Dispatch>)@TempData["CarsSelected"]))
+                    {
+                        total += item.Quantity;
+                        <tr>
+                            <td>@Html.DisplayFor(m => item.City)</td>@Html.HiddenFor(m => item.City)
+                            <td>@Html.DisplayFor(m => item.Quantity)</td>@Html.HiddenFor(m => item.Quantity)
+                            <td>
+                                @if (item.Id != 0)
+                                {
+                                    <text>Número de despacho: </text>
+                                    @Html.DisplayFor(m => item.Id)
+                                }
+                            </td>
+                        </tr>
+                    }
+                <tr>
+                    <td>Total</td>
+                    <td>
+                        @total
+                    </td>
+                    <td></td>
+                </tr>
+                }
+            </tbody>
+        </table>
+        <br />
+        <button class="btn waves-effect waves-light right" type="submit" name="action">
+            Confirmar Despachos
+        </button>
+        <br />
+        <br />
+    }
+}
+
