@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using MySql.Data.MySqlClient;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using WebApplication.Models;
 
 namespace WebApplication.Controllers
@@ -13,50 +16,58 @@ namespace WebApplication.Controllers
     public class HomeController : Controller
     {
         private ConnectionDB connection;
+        private IConfiguration configuration;
 
-        public HomeController(ConnectionDB connection)
+        public HomeController(ConnectionDB connection, IConfiguration configuration)
         {
             this.connection = connection;
+            this.configuration = configuration;
         }
 
-        public IActionResult Index(string sortOrder)
+        public async Task<IActionResult> Index(string sortOrder, int? page, string showDispatch)
         {
+            ViewData["CurrentSort"] = sortOrder;
             try
             {
                 var cars = from s in connection.Car select s;
-                int val = 0;
-                switch (sortOrder)
-                {
-                    case "brand":
-                        cars = (val = Convert.ToInt32(HttpContext.Session.GetInt32("brand"))) == 1 ? cars.OrderByDescending(s => s.Brand) : cars.OrderBy(s => s.Brand);
-                        HttpContext.Session.SetInt32("brand", val == 0 ? 1 : 0);
-                        break;
-                    case "model":
-                        cars = (val = Convert.ToInt32(HttpContext.Session.GetInt32("model"))) == 1 ? cars.OrderByDescending(s => s.Model) : cars.OrderBy(s => s.Model);
-                        HttpContext.Session.SetInt32("model", val == 0 ? 1 : 0);
-                        break;
-                    case "color":
-                        cars = (val = Convert.ToInt32(HttpContext.Session.GetInt32("color"))) == 1 ? cars.OrderByDescending(s => s.Color) : cars.OrderBy(s => s.Color);
-                        HttpContext.Session.SetInt32("color", val == 0 ? 1 : 0);
-                        break;
-                    case "plate":
-                        cars = (val = Convert.ToInt32(HttpContext.Session.GetInt32("plate"))) == 1 ? cars.OrderByDescending(s => s.Plate) : cars.OrderBy(s => s.Plate);
-                        HttpContext.Session.SetInt32("plate", val == 0 ? 1 : 0);
-                        break;
-                    case "city":
-                        cars = (val = Convert.ToInt32(HttpContext.Session.GetInt32("city"))) == 1 ? cars.OrderByDescending(s => s.City) : cars.OrderBy(s => s.City);
-                        HttpContext.Session.SetInt32("city ", val == 0 ? 1 : 0);
-                        break;
-                    default:
-                        cars = cars.OrderBy(s => s.Brand);
-                        break;
-                }
-                ViewBag.Active = false;
                 if (!string.IsNullOrEmpty(sortOrder))
                 {
-                    TempData["CarsSelected"] = connection.Dispatch.ToList();
+                    int val = Convert.ToInt32(HttpContext.Session.GetInt32(sortOrder));
+                    if (page == null)
+                    {
+                        int count = Convert.ToInt32(HttpContext.Session.GetInt32(sortOrder + "Count")) + 1;
+                        HttpContext.Session.SetInt32(sortOrder + "Count", count);
+                        if (count > 1)
+                        {
+                            HttpContext.Session.SetInt32(sortOrder, val == 0 ? 1 : 0);
+                        }
+                    }
+                    switch (sortOrder)
+                    {
+                        case "brand":
+                            cars = val == 1 ? cars.OrderByDescending(s => s.Brand) : cars.OrderBy(s => s.Brand);
+                            break;
+                        case "model":
+                            cars = val == 1 ? cars.OrderByDescending(s => s.Model) : cars.OrderBy(s => s.Model);
+                            break;
+                        case "color":
+                            cars = val == 1 ? cars.OrderByDescending(s => s.Color) : cars.OrderBy(s => s.Color);
+                            break;
+                        case "plate":
+                            cars = val == 1 ? cars.OrderByDescending(s => s.Plate) : cars.OrderBy(s => s.Plate);
+                            break;
+                        case "city":
+                            cars = val == 1 ? cars.OrderByDescending(s => s.City) : cars.OrderBy(s => s.City);
+                            break;
+                        default:
+                            // cars = cars.OrderBy(s => s.Brand);
+                            break;
+                    }
                 }
-                return View(cars.ToList());
+                if (!string.IsNullOrEmpty(showDispatch))
+                    TempData["CarsSelected"] = connection.Dispatch.ToList();
+                ViewBag.Active = false;
+                return View(await PaginatedList<Car>.CreateAsync(cars.AsNoTracking(), page ?? 1, configuration.GetValue<int>("PageSize")));
             }
             catch (MySqlException e)
             {
@@ -104,7 +115,7 @@ namespace WebApplication.Controllers
                 connection.Dispatch.AddAsync(d);
             }
             connection.SaveChanges();
-            return RedirectToAction("Index", new { sortOrder = "brand" });
+            return RedirectToAction("Index", new { showDispatch = "show" });
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

@@ -1,5 +1,9 @@
-﻿@model IList<Car>
-@{ ViewData["Title"] = "Home"; }
+﻿@model PaginatedList<Car>
+@{
+    ViewData["Title"] = "Home";
+    var prevDisabled = !Model.HasPreviousPage ? "disabled" : "";
+    var nextDisabled = !Model.HasNextPage ? "disabled" : "";
+}
 @using (Html.BeginForm("Index", "Home", FormMethod.Post))
 {
     <table class="responsive-table highlight centered">
@@ -13,11 +17,11 @@
                         </label>
                     </p>
                 </th>
-                <th>@Html.ActionLink("Marca", "Index", new { sortOrder = "brand" })</th>
-                <th>@Html.ActionLink("Modelo", "Index", new { sortOrder = "model" })</th>
-                <th>@Html.ActionLink("Color", "Index", new { sortOrder = "color" })</th>
-                <th>@Html.ActionLink("Placa", "Index", new { sortOrder = "plate" })</th>
-                <th>@Html.ActionLink("Ciudad Destino", "Index", new { sortOrder = "city" })</th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="brand">Marca</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="model">Modelo</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="color">Color</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="plate">Placa</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="city" >Ciudad Destino</a></th>
             </tr>
         </thead>
 
@@ -41,6 +45,19 @@
         </tbody>
     </table>
     <input type="submit" value="Submit" hidden id="btn" />
+
+    <a asp-action="Index"
+       asp-route-sortOrder="@ViewData["CurrentSort"]"
+       asp-route-page="@(Model.PageIndex - 1)"
+       class="waves-effect waves-light  cyan darken-1 btn @prevDisabled">
+        Anterior
+    </a>
+    <a asp-action="Index"
+       asp-route-sortOrder="@ViewData["CurrentSort"]"
+       asp-route-page="@(Model.PageIndex + 1)"
+       class="waves-effect waves-light right cyan darken-1 btn @nextDisabled">
+        Siguiente
+    </a>
 }
 
 @if (@TempData["CarsSelected"] != null && ((IList<Dispatch>)@TempData["CarsSelected"]).Any())
@@ -79,13 +96,13 @@
                             </td>
                         </tr>
                     }
-                <tr>
-                    <td>Total</td>
-                    <td>
-                        @total
-                    </td>
-                    <td></td>
-                </tr>
+                    <tr>
+                        <td>Total</td>
+                        <td>
+                            @total
+                        </td>
+                        <td></td>
+                    </tr>
                 }
             </tbody>
         </table>
