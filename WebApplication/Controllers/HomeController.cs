@@ -3,9 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using MySql.Data.MySqlClient;
-using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,22 +22,26 @@ namespace WebApplication.Controllers
             this.configuration = configuration;
         }
 
-        public async Task<IActionResult> Index(string sortOrder, int? page, string showDispatch)
+        public async Task<IActionResult> Index(string sortOrder, int? page, string showDispatch, string sort)
         {
             ViewData["CurrentSort"] = sortOrder;
+            HttpContext.Session.SetInt32("CurrentPage", page??1);
             try
             {
                 var cars = from s in connection.Car select s;
                 if (!string.IsNullOrEmpty(sortOrder))
                 {
+                    HttpContext.Session.SetString("CurrentSort", sortOrder);                    
                     int val = Convert.ToInt32(HttpContext.Session.GetInt32(sortOrder));
-                    if (page == null)
+                    if (!string.IsNullOrEmpty(sort))
                     {
                         int count = Convert.ToInt32(HttpContext.Session.GetInt32(sortOrder + "Count")) + 1;
                         HttpContext.Session.SetInt32(sortOrder + "Count", count);
                         if (count > 1)
                         {
                             HttpContext.Session.SetInt32(sortOrder, val == 0 ? 1 : 0);
+                            HttpContext.Session.SetInt32(sortOrder + "Count", 1);
+                            val = val == 0 ? 1 : 0;
                         }
                     }
                     switch (sortOrder)
@@ -64,9 +66,12 @@ namespace WebApplication.Controllers
                             break;
                     }
                 }
+                if (cars.Where(x => x.Selected).Count() > 0)
+                {
+                    ViewBag.dispatch = GetDispatches().ToList();
+                }
                 if (!string.IsNullOrEmpty(showDispatch))
-                    TempData["CarsSelected"] = connection.Dispatch.ToList();
-                ViewBag.Active = false;
+                    ViewBag.dispatch = connection.Dispatch.ToList();
                 return View(await PaginatedList<Car>.CreateAsync(cars.AsNoTracking(), page ?? 1, configuration.GetValue<int>("PageSize")));
             }
             catch (MySqlException e)
@@ -77,45 +82,52 @@ namespace WebApplication.Controllers
 
 
         [HttpPost]
-        public IActionResult Index(IList<Car> list)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditCar(PaginatedList<Car> cars)
         {
-            IDictionary<string, Dispatch> selected = new Dictionary<string, Dispatch>();
-            bool active = true;
-            for (var c = 0; c < list.Count; c++)
+            try
             {
-                if (list[c].Selected)
-                {
-                    if (!selected.ContainsKey(list[c].City))
-                    {
-                        selected.Add(list[c].City, new Dispatch { City = list[c].City, Quantity = 1 });
-                    }
-                    else
-                    {
-                        selected[list[c].City].Quantity++;
-                    }
-                }
-                else if (active)
-                {
-                    active = false;
-                }
+                connection.UpdateRange(cars);
+                await connection.SaveChangesAsync();
+                return RedirectToAction("Index", new {
+                    sortOrder = HttpContext.Session.GetString("CurrentSort"),
+                    page = HttpContext.Session.GetInt32("CurrentPage"),
+                    countDispatch = "count" });
             }
-            ViewBag.Active = active;
-            IList<Dispatch> dispatches = selected.Values.ToList();
-            HttpContext.Session.SetString("CarsSelected", JsonConvert.SerializeObject(dispatches));
-            TempData["CarsSelected"] = dispatches;
-            return View(list);
+            catch (DbUpdateException /* ex */)
+            {
+                //Log the error (uncomment ex variable name and write a log.)
+                ModelState.AddModelError("", "Unable to save changes. " +
+                    "Try again, and if the problem persists, " +
+                    "see your system administrator.");
+                return RedirectToAction("Index");
+            }
         }
 
         [HttpPost]
         public IActionResult SaveDispatches()
         {
-            IList<Dispatch> dispatches = JsonConvert.DeserializeObject<List<Dispatch>>(HttpContext.Session.GetString("CarsSelected"));
+            var dispatches = GetDispatches();
             foreach (var d in dispatches)
             {
                 connection.Dispatch.AddAsync(d);
             }
+            IQueryable<Car> c = connection.Car.Where(x => x.Selected);
+            c.ForEachAsync(x => x.Selected = false);
             connection.SaveChanges();
             return RedirectToAction("Index", new { showDispatch = "show" });
+        }
+
+        private IQueryable<Dispatch> GetDispatches()
+        {
+            return from car in connection.Car
+                        where car.Selected
+                        group car by car.City into dispatch
+                        select new Dispatch()
+                        {
+                            City = dispatch.Key,
+                            Quantity = dispatch.Count()
+                        };
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

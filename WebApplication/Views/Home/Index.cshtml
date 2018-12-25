@@ -3,25 +3,30 @@
     ViewData["Title"] = "Home";
     var prevDisabled = !Model.HasPreviousPage ? "disabled" : "";
     var nextDisabled = !Model.HasNextPage ? "disabled" : "";
+    var active = true;
+    for (int i = 0; i < Model.Count && @active; i++)
+    {
+        active = Model[i].Selected;
+    }
 }
-@using (Html.BeginForm("Index", "Home", FormMethod.Post))
-{
+<form asp-action="EditCar" method="post">
+
     <table class="responsive-table highlight centered">
         <thead>
             <tr>
                 <th>
                     <p>
                         <label>
-                            <input type="checkbox" checked="@ViewBag.Active" class="toggleClaim" />
+                            <input type="checkbox" checked="@active" class="toggleClaim" />
                             <span></span>
                         </label>
                     </p>
                 </th>
-                <th>  <a asp-action="Index" asp-route-sortOrder="brand">Marca</a></th>
-                <th>  <a asp-action="Index" asp-route-sortOrder="model">Modelo</a></th>
-                <th>  <a asp-action="Index" asp-route-sortOrder="color">Color</a></th>
-                <th>  <a asp-action="Index" asp-route-sortOrder="plate">Placa</a></th>
-                <th>  <a asp-action="Index" asp-route-sortOrder="city" >Ciudad Destino</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="brand" asp-route-sort="change">Marca</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="model" asp-route-sort="change">Modelo</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="color" asp-route-sort="change">Color</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="plate" asp-route-sort="change">Placa</a></th>
+                <th>  <a asp-action="Index" asp-route-sortOrder="city"  asp-route-sort="change">Ciudad Destino</a></th>
             </tr>
         </thead>
 
@@ -31,20 +36,35 @@
                 <tr>
                     <td>
                         <label>
-                            @Html.CheckBoxFor(m => m[i].Selected, new { @class = "check", @onclick = "document.getElementById('btn').click()" })
+                            @Html.CheckBoxFor(m => m[i].Selected, new { @class = "check" })
                             <span></span>
                         </label>
                     </td>
-                    <td>@Html.DisplayFor(m => m[i].Brand)</td>@Html.HiddenFor(m => m[i].Brand)
-                    <td>@Html.DisplayFor(m => m[i].Model)</td>@Html.HiddenFor(m => m[i].Model)
-                    <td>@Html.DisplayFor(m => m[i].Color)</td>@Html.HiddenFor(m => m[i].Color)
-                    <td>@Html.DisplayFor(m => m[i].Plate)</td>@Html.HiddenFor(m => m[i].Plate)
-                    <td>@Html.DisplayFor(m => m[i].City)</td>@Html.HiddenFor(m => m[i].City)
+                    <td>
+                        @Html.DisplayFor(m => m[i].Brand)
+                        @Html.HiddenFor(m => m[i].Brand)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(m => m[i].Model)
+                        @Html.HiddenFor(m => m[i].Model)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(m => m[i].Color)
+                        @Html.HiddenFor(m => m[i].Color)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(m => m[i].Plate)
+                        @Html.HiddenFor(m => m[i].Plate)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(m => m[i].City)
+                        @Html.HiddenFor(m => m[i].City)
+                    </td>
                 </tr>
             }
         </tbody>
     </table>
-    <input type="submit" value="Submit" hidden id="btn" />
+    <button type="submit" id="btn" hidden></button>
 
     <a asp-action="Index"
        asp-route-sortOrder="@ViewData["CurrentSort"]"
@@ -58,30 +78,29 @@
        class="waves-effect waves-light right cyan darken-1 btn @nextDisabled">
         Siguiente
     </a>
-}
+</form>
 
-@if (@TempData["CarsSelected"] != null && ((IList<Dispatch>)@TempData["CarsSelected"]).Any())
+@if (ViewBag.dispatch != null && ViewBag.dispatch.Count > 0)
 {
     <br />
     <br />
     <br />
     <hr />
     <br />
-    @using (Html.BeginForm("SaveDispatches", "Home", FormMethod.Post))
-    {
-        <table class="responsive-table highlight centered">
-            <thead>
-                <tr>
-                    <th>Ciudad Destino</th>
-                    <th>Cantidad de Vehículos a Despachar</th>
-                    <th>Número de despacho</th>
-                </tr>
-            </thead>
-            <tbody>
-
-                @{
-                    int total = 0;
-                    @foreach (var item in ((IList<Dispatch>)@TempData["CarsSelected"]))
+    <form asp-action="SaveDispatches" method="post">
+        @{
+            var total = 0;
+            var act = "";
+            <table class="responsive-table highlight centered">
+                <thead>
+                    <tr>
+                        <th>Ciudad Destino</th>
+                        <th>Cantidad de Vehículos a Despachar</th>
+                        <th>Número de despacho</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in ViewBag.dispatch as IList<Dispatch>)
                     {
                         total += item.Quantity;
                         <tr>
@@ -90,12 +109,15 @@
                             <td>
                                 @if (item.Id != 0)
                                 {
+                                    act = "disabled";
                                     <text>Número de despacho: </text>
                                     @Html.DisplayFor(m => item.Id)
                                 }
                             </td>
                         </tr>
                     }
+
+
                     <tr>
                         <td>Total</td>
                         <td>
@@ -103,15 +125,15 @@
                         </td>
                         <td></td>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+            <br />
+            <button class="btn waves-effect waves-light right @act" type="submit" name="action">
+                Confirmar Despachos
+            </button>
+        }
         <br />
-        <button class="btn waves-effect waves-light right" type="submit" name="action">
-            Confirmar Despachos
-        </button>
         <br />
-        <br />
-    }
+    </form>
 }
 

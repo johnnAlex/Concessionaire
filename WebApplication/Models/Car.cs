@@ -16,7 +16,13 @@ namespace WebApplication.Models
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public string Plate { get; set; }
         public string City { get; set; }
+        public Int16 Checked { get; set; }
+
         [NotMapped]
-        public bool Selected { get; set; }
+        public bool Selected
+        {
+            get { return Checked == 1; }
+            set { Checked = value ? Convert.ToInt16(1) : Convert.ToInt16(0); }
+        }
     }
 }
