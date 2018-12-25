@@ -14,6 +14,7 @@ namespace WebApplication.Controllers
     public class HomeController : Controller
     {
         private ConnectionDB connection;
+        private static NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
         private IConfiguration configuration;
 
         public HomeController(ConnectionDB connection, IConfiguration configuration)
@@ -24,6 +25,7 @@ namespace WebApplication.Controllers
 
         public async Task<IActionResult> Index(string sortOrder, int? page, string showDispatch, string sort)
         {
+            logger.Info("Pagina Inicial Cargada\n");
             ViewData["CurrentSort"] = sortOrder;
             HttpContext.Session.SetInt32("CurrentPage", page??1);
             try
@@ -31,7 +33,7 @@ namespace WebApplication.Controllers
                 var cars = from s in connection.Car select s;
                 if (!string.IsNullOrEmpty(sortOrder))
                 {
-                    HttpContext.Session.SetString("CurrentSort", sortOrder);                    
+                    HttpContext.Session.SetString("CurrentSort", sortOrder);
                     int val = Convert.ToInt32(HttpContext.Session.GetInt32(sortOrder));
                     if (!string.IsNullOrEmpty(sort))
                     {
@@ -76,7 +78,13 @@ namespace WebApplication.Controllers
             }
             catch (MySqlException e)
             {
-                return RedirectToAction("Error", new { e.Message });
+                logger.Error(e.Message);
+                return RedirectToAction("Error", new { message = configuration.GetValue<string>("MysqlError") });
+            }
+            catch(Exception e)
+            {
+                logger.Error(e.Message);
+                return RedirectToAction("Error", new { message = configuration.GetValue<string>("OtherError") });
             }
         }
 
@@ -85,6 +93,7 @@ namespace WebApplication.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditCar(PaginatedList<Car> cars)
         {
+            logger.Info("Editando carro\n");
             try
             {
                 connection.UpdateRange(cars);
@@ -94,19 +103,22 @@ namespace WebApplication.Controllers
                     page = HttpContext.Session.GetInt32("CurrentPage"),
                     countDispatch = "count" });
             }
-            catch (DbUpdateException /* ex */)
+            catch (DbUpdateException ex)
             {
-                //Log the error (uncomment ex variable name and write a log.)
-                ModelState.AddModelError("", "Unable to save changes. " +
-                    "Try again, and if the problem persists, " +
-                    "see your system administrator.");
-                return RedirectToAction("Index");
+                logger.Error(ex.Message);
+                return RedirectToAction("Error", new { message = configuration.GetValue<string>("UpdateError") });
+            }
+            catch (Exception e)
+            {
+                logger.Error(e.Message);
+                return RedirectToAction("Error", new { message = configuration.GetValue<string>("OtherError") });
             }
         }
 
         [HttpPost]
         public IActionResult SaveDispatches()
         {
+            logger.Info("Guardando despachos\n");
             var dispatches = GetDispatches();
             foreach (var d in dispatches)
             {
@@ -133,6 +145,7 @@ namespace WebApplication.Controllers
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error(string message)
         {
+            logger.Info("Mostrando vista error\n");
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier, RequestMessage = message });
         }
     }
